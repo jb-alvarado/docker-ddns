@@ -20,6 +20,7 @@ var appConfig = &Config{}
 
 func main() {
     appConfig.LoadConfig("/etc/dyndns.json")
+    log.SetFlags(0)
 
     router := mux.NewRouter().StrictSlash(true)
     router.HandleFunc("/update", Update).Methods("GET")
