@@ -5,12 +5,14 @@ import (
     "fmt"
     "net/http"
     "io/ioutil"
+    "net"
     "os"
     "bufio"
     "os/exec"
     "bytes"
     "encoding/json"
 
+    "dyndns/ipparser"
     "github.com/gorilla/mux"
 )
 
@@ -35,6 +37,17 @@ func Update(w http.ResponseWriter, r *http.Request) {
     }
 
     for _, domain := range response.Domains {
+        ipExists := CheckIpFromDns(response.Address, fmt.Sprintf("%s.%s", domain, appConfig.Domain))
+
+        if ipExists {
+            response.Success = true
+            response.Message = "Record exist already"
+
+            log.Println(fmt.Sprintf("No update is needed for %s.%s IP address %s", domain, appConfig.Domain, response.Address))
+            json.NewEncoder(w).Encode(response)
+            return
+        }
+
         result := UpdateRecord(domain, response.Address, response.AddrType)
 
         if result != "" {
@@ -50,6 +63,28 @@ func Update(w http.ResponseWriter, r *http.Request) {
     response.Message = fmt.Sprintf("Updated %s record for %s to IP address %s", response.AddrType, response.Domain, response.Address)
 
     json.NewEncoder(w).Encode(response)
+}
+
+func CheckIpFromDns(ipaddr string, domain string) bool {
+    var ipExists bool = false
+    ips, err := net.LookupIP(domain)
+
+    if err != nil {
+        log.Println(fmt.Sprintf("No IP from DNS, set new IP to %s", ipaddr))
+        ipExists = false
+    }
+
+    for _, ip := range ips {
+        if ipparser.ValidIP4(ip.String()) && ip.String() == ipaddr {
+            ipExists = true
+            break
+        } else if ipparser.ValidIP6(ip.String()) && ip.String() == ipaddr {
+            ipExists = true
+            break
+        }
+    }
+
+    return ipExists
 }
 
 func UpdateRecord(domain string, ipaddr string, addrType string) string {
