@@ -3,11 +3,11 @@ package main
 import (
     "log"
     "fmt"
-    "net"
     "net/http"
     "strings"
 
     "dyndns/ipparser"
+    "github.com/tomasen/realip"
 )
 
 type WebserviceResponse struct {
@@ -53,15 +53,8 @@ func BuildWebserviceResponseFromRequest(r *http.Request, appConfig *Config) Webs
     } else if ipparser.ValidIP6(response.Address) {
         response.AddrType = "AAAA"
     } else {
-        ip, _, err := net.SplitHostPort(r.RemoteAddr)
-        
-        if err != nil {
-            response.Success = false
-            response.Message = fmt.Sprintf("%q is neither a valid IPv4 nor IPv6 address", r.RemoteAddr)
-            log.Println(fmt.Sprintf("Invalid address: %q", r.RemoteAddr))
-            return response
-        }
-        
+        ip := realip.FromRequest(r)
+
         // @todo refactor this code to remove duplication
         if ipparser.ValidIP4(ip) {
             response.AddrType = "A"
